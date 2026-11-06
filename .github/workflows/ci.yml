@@ -5,19 +5,23 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint:check
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run test:e2e
-      - run: npm run build
+  ci:
+    uses: HUAYUN-vision/ci-cd-workflows/.github/workflows/node-ci.yml@main
+    permissions:
+      contents: read
+    # secrets:
+    #   socket-token: ${{ secrets.SOCKET_API_KEY }} # Socket Firewall Enterprise
+
+  version:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: HUAYUN-vision/ci-cd-workflows/.github/workflows/version.yml@main
+    permissions:
+      contents: write
+    # secrets:
+    #   token: ${{ secrets.RELEASE_TOKEN }} # если main защищена от прямого push
