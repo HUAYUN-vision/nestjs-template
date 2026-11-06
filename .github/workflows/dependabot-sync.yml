@@ -7,7 +7,7 @@ on:
 
 jobs:
   sync:
-    uses: HUAYUN-vision/ci-cd-workflows/.github/workflows/dependabot-sync.yml@main
+    uses: HUAYUN-vision/ci-cd-workflows/.github/workflows/dependabot-sync.yml@v1
     permissions:
       contents: write
       pull-requests: write

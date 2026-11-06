@@ -12,7 +12,11 @@ RUN npm run build && npm prune --omit=dev --ignore-scripts
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN apk add --no-cache tini
+# npm/yarn/corepack в runtime не нужны — удаляем, чтобы уменьшить поверхность атаки (и находки Trivy)
+RUN apk add --no-cache tini \
+  && apk upgrade --no-cache \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn*
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json ./
