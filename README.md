@@ -60,7 +60,61 @@ test/                   # e2e-тесты
 
 ## Использование как шаблона
 
-1. Скопируйте репозиторий (или отметьте его как _Template repository_ на GitHub).
-2. Поменяйте `name` / `description` в `package.json`.
+> Не используйте кнопку **Use this template** на GitHub. Она создаёт репозиторий без общей истории с шаблоном, и подтягивать обновления потом придётся через `--allow-unrelated-histories` с конфликтами почти во всех файлах. Клонируйте шаблон с историей, тогда обновления вливаются обычным `git merge`.
+
+### Старт нового проекта
+
+```bash
+# 1. Создайте пустой репозиторий на GitHub (без README/.gitignore), например HUAYUN-vision/my-service
+
+# 2. Клон шаблона с историей
+git clone https://github.com/HUAYUN-vision/nestjs-template.git my-service
+cd my-service
+
+# 3. Шаблон становится remote "template", а origin указывает на новый репозиторий
+git remote rename origin template
+git remote add origin https://github.com/HUAYUN-vision/my-service.git
+
+# 4. ВАЖНО: не тянуть теги шаблона
+git config remote.template.tagOpt --no-tags
+git tag -l | xargs git tag -d
+
+# 5. Настройка под проект (см. ниже), затем
+git commit -am "chore: init my-service from nestjs-template"
+git push -u origin main
+```
+
+**Почему без тегов.** Версия считается от последнего тега `vX.Y.Z` (`git describe --tags`). Если теги шаблона попадут в проект, он «унаследует» чужую версию, а релиз может упасть на уже существующем теге.
+
+Что поменять в новом проекте:
+
+1. `package.json`: `name`, `description`, `"version": "0.0.0"`.
+2. `README.md`, `docker-compose.yml` (имена сервисов и образов), `.env.example`.
 3. Новые переменные окружения добавляйте в `src/config/env.validation.ts` и `.env.example`.
 4. Проверки БД / Redis / внешних сервисов добавляйте в `HealthController.ready()`.
+
+### Как подтягивать изменения из шаблона
+
+```bash
+git fetch template
+git checkout -b chore/sync-template
+git merge template/main
+# разрешить конфликты, затем:
+npm install          # пересобрать lock, если конфликтовал package-lock.json
+npm run build && npm test
+git push -u origin chore/sync-template   # и открыть PR
+```
+
+Заголовок PR: `chore: sync with nestjs-template`, тогда релиз не выпускается. Если в шаблоне был важный фикс, ставьте `fix: ...`, тогда выйдет patch-релиз.
+
+Типичные конфликты:
+
+- **`package.json` → `version`, `name`**: всегда оставляйте значения проекта. Шаблон сам делает коммиты `chore(release): vX.Y.Z`, поэтому версия конфликтует при каждом мердже.
+- **`package-lock.json`**: не правьте руками. Возьмите любую сторону и выполните `npm install`.
+- **Зависимости**: dependabot обновляет их и в шаблоне, и в проекте. Берите более новую версию.
+
+### Как уменьшить число конфликтов
+
+- Держите общее в шаблоне, а специфичное для проекта в отдельных файлах и модулях. Чем реже проект меняет «шаблонные» файлы (`eslint.config.mjs`, `tsconfig*`, `Dockerfile`, `.github/`, `src/main.ts`, `src/setup-app.ts`), тем проще мердж.
+- CI вынесен в [`HUAYUN-vision/ci-cd-workflows`](https://github.com/HUAYUN-vision/ci-cd-workflows) (`@v1`), так что улучшения пайплайна доходят до проектов без мерджа. Конфиг Dependabot синхронизирует workflow `dependabot-sync.yml`: раз в неделю он открывает PR.
+- Синхронизируйтесь регулярно: несколько мелких мерджей проще одного большого раз в полгода.
